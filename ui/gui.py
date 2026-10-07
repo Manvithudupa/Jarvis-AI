@@ -57,12 +57,6 @@ from services.ollama_manager import ensure_ollama, is_online
 from utils.autostart import autostart_enabled
 
 try:
-    from services import phone_link
-except Exception as e:
-    print(f"[gui] phone link unavailable: {e}")
-    phone_link = None
-
-try:
     import psutil
 except Exception:
     psutil = None
@@ -1213,142 +1207,6 @@ class AssistantWorker(QObject):
 
 
 # ---------------------------------------------------------------------------
-# Phone link dialog — QR code + URL so a phone on the same Wi-Fi can use
-# J.A.R.V.I.S. (started by the PHONE LINK button / automatically at boot)
-# ---------------------------------------------------------------------------
-class PhoneLinkDialog(QDialog):
-    """Shows the phone-link QR code / URL and lets you start or stop it."""
-
-    def __init__(self, server, parent=None):
-        super().__init__(parent)
-        self.server = server
-        self.setWindowTitle(f"{server.assistant.botname} — Phone Link")
-        self.setFixedWidth(420)
-        self.setStyleSheet(f"QDialog {{ background: {C.BG}; }}")
-
-        v = QVBoxLayout(self)
-        v.setContentsMargins(18, 18, 18, 18)
-        v.setSpacing(10)
-
-        title = QLabel("◈ PHONE LINK")
-        title.setFont(QFont("Courier New", 13, QFont.Weight.Bold))
-        title.setStyleSheet(f"color: {C.PRI}; background: transparent;")
-        v.addWidget(title)
-
-        hint = QLabel(
-            "Scan the QR with your phone's camera (same Wi-Fi as this PC) "
-            "to open J.A.R.V.I.S. in the phone browser — full chat, "
-            "commands, and voice input (tap the mic button).")
-        hint.setWordWrap(True)
-        hint.setFont(QFont("Courier New", 8))
-        hint.setStyleSheet(f"color: {C.TEXT_DIM}; background: transparent;")
-        v.addWidget(hint)
-
-        # QR on a white card so phone scanners read it reliably
-        card = QFrame()
-        card.setStyleSheet(
-            f"background: white; border: 1px solid {C.BORDER_B}; "
-            "border-radius: 6px;")
-        card.setFixedHeight(240)
-        cv = QVBoxLayout(card)
-        cv.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.qr_label = QLabel()
-        self.qr_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        cv.addWidget(self.qr_label)
-        v.addWidget(card)
-        self._load_qr()
-
-        self.url_label = QLabel(server.url)
-        self.url_label.setTextInteractionFlags(
-            Qt.TextInteractionFlag.TextSelectableByMouse)
-        self.url_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.url_label.setFont(QFont("Courier New", 11, QFont.Weight.Bold))
-        self.url_label.setStyleSheet(
-            f"color: {C.TEXT}; background: transparent;")
-        v.addWidget(self.url_label)
-
-        self.status_label = QLabel()
-        self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.status_label.setFont(QFont("Courier New", 9, QFont.Weight.Bold))
-        v.addWidget(self.status_label)
-
-        note = QLabel(
-            "Keep the HUD open — that's where the AI runs. The link uses "
-            "HTTPS so voice works: the first time, the phone shows a \"not "
-            "private\" warning — tap Advanced → Proceed. If Windows asks, "
-            "Allow Python through the firewall.")
-        note.setWordWrap(True)
-        note.setFont(QFont("Courier New", 7))
-        note.setStyleSheet(f"color: {C.TEXT_DIM}; background: transparent;")
-        v.addWidget(note)
-
-        row = QHBoxLayout()
-        row.setSpacing(8)
-        self.toggle_btn = QPushButton()
-        self.toggle_btn.setFont(QFont("Courier New", 9, QFont.Weight.Bold))
-        self.toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.toggle_btn.clicked.connect(self._toggle_server)
-        row.addWidget(self.toggle_btn)
-
-        copy_btn = QPushButton("COPY URL")
-        copy_btn.setFont(QFont("Courier New", 9, QFont.Weight.Bold))
-        copy_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        copy_btn.setStyleSheet(_BTN_SS)
-        copy_btn.clicked.connect(self._copy_url)
-        row.addWidget(copy_btn)
-
-        close_btn = QPushButton("CLOSE")
-        close_btn.setFont(QFont("Courier New", 9, QFont.Weight.Bold))
-        close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        close_btn.setStyleSheet(_BTN_SS)
-        close_btn.clicked.connect(self.accept)
-        row.addWidget(close_btn)
-        v.addLayout(row)
-
-        self._refresh()
-
-    def _load_qr(self):
-        png = phone_link.make_qr_png(self.server.url) if phone_link else None
-        if png:
-            pix = QPixmap.fromImage(QImage.fromData(png))
-            pix = pix.scaled(220, 220,
-                             Qt.AspectRatioMode.KeepAspectRatio,
-                             Qt.TransformationMode.SmoothTransformation)
-            self.qr_label.setPixmap(pix)
-        else:
-            self.qr_label.setText("QR unavailable — pip install qrcode[pil]")
-            self.qr_label.setStyleSheet("color: #333; background: transparent;")
-
-    def _refresh(self):
-        running = self.server.is_running
-        self.status_label.setText(
-            "SERVER RUNNING — ready for your phone" if running
-            else "SERVER STOPPED")
-        self.status_label.setStyleSheet(
-            f"color: {C.GREEN if running else C.RED}; background: transparent;")
-        self.toggle_btn.setText("STOP SERVER" if running else "START SERVER")
-        self.toggle_btn.setStyleSheet(_BTN_ON_SS if running else _BTN_SS)
-
-    def _toggle_server(self):
-        if self.server.is_running:
-            self.server.stop()
-        elif not self.server.start():
-            QMessageBox.warning(
-                self, "Phone Link",
-                "Couldn't start the phone link server — is the port busy?")
-        self._refresh()
-
-    def _copy_url(self):
-        QApplication.clipboard().setText(self.server.url)
-        self._refresh()
-        self.status_label.setText("URL copied to clipboard ✓")
-        self.status_label.setStyleSheet(
-            f"color: {C.ACC2}; background: transparent;")
-        # restore the running/stopped state after the copy confirmation
-        QTimer.singleShot(1500, self._refresh)
-
-
-# ---------------------------------------------------------------------------
 # Toast overlay — a cyberpunk notice that pops in at the top-right of the
 # HUD (timers/reminders). Child widget, so it moves with the window, never
 # steals focus and is invisible to the mouse. Multiple notices queue up.
@@ -1509,7 +1367,6 @@ class MainWindow(QMainWindow):
         self._net_last = None
         self._net_last_t = 0.0
         self._leds = {}
-        self.phone_server = None
 
         self.setWindowTitle(f"{assistant.botname} — Desktop HUD")
         self.resize(1120, 720)
@@ -1585,7 +1442,6 @@ class MainWindow(QMainWindow):
         v.addWidget(self._hdr("QUICK ACTIONS"))
 
         actions = [
-            ("PHONE LINK", self._open_phone_link),
             ("WEATHER", self.worker.action_weather),
             ("JOKE", self.worker.action_joke),
             ("NEWS", self.worker.action_news),
@@ -1810,7 +1666,6 @@ class MainWindow(QMainWindow):
             self.log.enqueue_line(
                 "Voice replies are OFF (remembered from last time) — "
                 "click SPEAKER to turn them on.", "sys")
-        self._start_phone_link()
         self.input.setFocus()
         if self._wake_word_enabled:
             # wake-word mode supersedes the one-shot auto-listen
@@ -1885,44 +1740,6 @@ class MainWindow(QMainWindow):
         self.startup_btn.setStyleSheet(
             _BTN_ON_SS if self._startup_on else _BTN_SS)
         self.log.enqueue_line(msg, "sys" if ok else "err")
-
-    # -- phone link ----------------------------------------------------------
-    def _start_phone_link(self):
-        """Boot the phone link server in the background (best effort)."""
-        if phone_link is None:
-            return
-        try:
-            self.phone_server = phone_link.PhoneLinkServer(self.assistant)
-            if self.phone_server.start():
-                self.log.enqueue_line(
-                    f"PHONE LINK: {self.phone_server.url} — scan the QR "
-                    "(PHONE LINK button) to chat from your phone.", "sys")
-            else:
-                self.log.enqueue_line(
-                    "Phone link couldn't start (port busy?).", "err")
-        except Exception as e:
-            print(f"[gui] phone link error: {e}")
-            self.log.enqueue_line("Phone link failed to start.", "err")
-
-    def _open_phone_link(self):
-        """Open the QR-code dialog (starts the server if it isn't running)."""
-        if phone_link is None:
-            QMessageBox.warning(
-                self, "Phone Link",
-                "The phone link isn't available on this machine.\n"
-                "Install it with: pip install flask qrcode[pil]")
-            return
-        if self.phone_server is None:
-            self.phone_server = phone_link.PhoneLinkServer(self.assistant)
-            if not self.phone_server.start():
-                QMessageBox.warning(
-                    self, "Phone Link",
-                    "Couldn't start the phone link server — is the port "
-                    "busy?")
-                return
-            self.log.enqueue_line(
-                f"PHONE LINK: {self.phone_server.url}", "sys")
-        PhoneLinkDialog(self.phone_server, self).exec()
 
     def _greeting_text(self):
         username = self.assistant.username

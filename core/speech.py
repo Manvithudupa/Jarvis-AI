@@ -48,18 +48,51 @@ _SMILEY_RE = re.compile(r"(?i)[:;=]-?[)DdPpOo/\\*\[\]]+|[:;=]-?\(|</3")
 _MD_RE = re.compile(r"[*_`~]+")
 _WS_RE = re.compile(r"\s+")
 
+# Small local models answer in markdown + LaTeX with no idea it's being read
+# aloud. "$17 \times 23 = \boxed{391}$" comes out of SAPI as "dollar
+# seventeen backslash times twenty three equals backslash boxed braces three
+# nine one braces dollar". Translate the common operators to words and drop
+# the markup so a spoken answer sounds human.
+_LATEX_WORDS = (
+    (re.compile(r"\\frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}"), r" \1 over \2 "),
+    (re.compile(r"\\sqrt\s*\{([^{}]*)\}"), r" square root of \1 "),
+    (re.compile(r"\\times\b"), " times "),
+    (re.compile(r"\\cdot\b"), " times "),
+    (re.compile(r"\\div\b"), " divided by "),
+    (re.compile(r"\\pm\b"), " plus or minus "),
+    (re.compile(r"\\approx\b"), " approximately "),
+    (re.compile(r"\\%"), " percent "),
+)
+_LATEX_CMD_RE = re.compile(r"\\[a-zA-Z]+\*?")      # any leftover \command
+_LATEX_DELIM_RE = re.compile(r"\$\$|\$|\\\(|\\\)|\\\[|\\\]")
+_MATH_CHARS_RE = re.compile(r"[{}^_]+")
+_FENCE_RE = re.compile(r"```[a-zA-Z0-9_+-]*")
+_MD_HEADING_RE = re.compile(r"^\s{0,3}#{1,6}\s*", re.MULTILINE)
+_MD_BULLET_RE = re.compile(r"^\s*[-*+]\s+", re.MULTILINE)
+_TABLE_RE = re.compile(r"\s*\|\s*")
+
 
 def strip_for_speech(text):
     """Clean text before it reaches the speech engine.
 
     Removes emoji/pictographs (which SAPI reads as words like "smiling face
-    with smiling eyes"), ASCII smilies (``:)``, ``:D``), and markdown
-    emphasis markers (``**bold**``, backticks) so the assistant only speaks
-    the actual words.
+    with smiling eyes"), ASCII smilies (``:)``, ``:D``), markdown emphasis
+    markers (``**bold**``, backticks) and the markdown/LaTeX furniture small
+    models sprinkle into answers (headings, bullet markers, table pipes and
+    ``$...$`` math) so the assistant only speaks the actual words.
     """
     if not text:
         return ""
-    cleaned = _EMOJI_RE.sub(" ", text)
+    cleaned = _FENCE_RE.sub(" ", text)
+    for pattern, replacement in _LATEX_WORDS:
+        cleaned = pattern.sub(replacement, cleaned)
+    cleaned = _LATEX_CMD_RE.sub(" ", cleaned)
+    cleaned = _LATEX_DELIM_RE.sub(" ", cleaned)
+    cleaned = _MATH_CHARS_RE.sub(" ", cleaned)
+    cleaned = _MD_HEADING_RE.sub("", cleaned)
+    cleaned = _MD_BULLET_RE.sub("", cleaned)
+    cleaned = _TABLE_RE.sub(" ", cleaned)
+    cleaned = _EMOJI_RE.sub(" ", cleaned)
     cleaned = _SMILEY_RE.sub(" ", cleaned)
     cleaned = _MD_RE.sub(" ", cleaned)
     cleaned = _WS_RE.sub(" ", cleaned)

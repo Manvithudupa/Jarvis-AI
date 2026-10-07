@@ -40,7 +40,6 @@ Unlike cloud assistants, your **AI answers and voice replies never leave your PC
 - 📚 **Real answers to any question** – Ask *"tell me about Narendra Modi"*, *"who is Einstein"* or *"give me information on X"* and J.A.R.V.I.S. auto-searches the web (free DuckDuckGo, no API key) and answers from real, up-to-date facts. No more "I'm a coding assistant" nonsense — it's a general assistant, not a code tool.
 - 🌐 **Offline-aware** – The AI brain (local Ollama model), voice replies, "Hey Jarvis" wake word, personal memory, screenshots and app-launching all run with **no internet**. J.A.R.V.I.S. detects when you're offline, shows an **INTERNET** status LED, warns you on startup, and tells you up front which features (weather, news, jokes, IP, YouTube/Wikipedia, web-search) are unavailable — instead of failing silently.
 - ⚡ **Always up** – Auto-starts Ollama when needed and can launch itself at Windows startup.
-- 📱 **Phone link** – Scan a QR code (the **PHONE LINK** button in the HUD) and J.A.R.V.I.S. opens in your phone's browser — full chat + commands + **voice input** (tap the 🎤 mic), as long as the phone is on the same Wi-Fi as the PC.
 
 ---
 
@@ -81,11 +80,11 @@ On Windows, tick **“Add Python to PATH”** during installation.
 Download Ollama from [ollama.com/download](https://ollama.com/download) and install it.
 Then open a **new terminal** (so `ollama` is on PATH) and download the model the assistant uses:
 ```bash
-ollama pull qwen3:1.7b
+ollama pull qwen3:4b
 ```
 > 💡 The assistant answers general-knowledge questions ("tell me about X", "who is X") by auto-searching the web and summarizing real results, so the local model only needs to be big enough to summarize — not to know everything.
-> 🔧 Want even smarter answers? Pull a larger model (e.g. `ollama pull qwen3:4b`) and set `BIG_MODEL` in your `.env` — `ULTRATHINK:` questions will use it.
-> 🖥️ **Hardware:** the default model (`qwen3:1.7b`) takes ~1.5 GB of disk and ~4 GB of free RAM to run comfortably. On weaker machines replies are slower; on stronger ones feel free to pull a bigger model.
+> 🔧 Want even smarter answers? Pull a larger model (e.g. `ollama pull qwen3:8b`) and set `BIG_MODEL` in your `.env` — `ULTRATHINK:` questions will use it.
+> 🖥️ **Hardware:** the default model (`qwen3:4b`) takes ~2.5 GB of disk and ~6 GB of free RAM to run comfortably. On weaker machines replies are slower; on stronger ones feel free to pull a bigger model.
 > ℹ️ On Windows, Ollama runs in the background (tray icon). Don't worry if it isn't running — the HUD now **starts it automatically** whenever it's needed.
 
 ### 3. Clone this Repo
@@ -182,8 +181,8 @@ You get:
 - 🚀 **Ollama auto-start** — if the local Ollama server is offline when the HUD opens (typical right after a reboot), J.A.R.V.I.S. starts it automatically in the background and waits until it's online, so your first question always gets answered
 - ⚡ **Quick actions** — weather, jokes, news, your IP, screenshots, opening apps, Wikipedia & YouTube search
 - 📊 Live **system metrics** (CPU / RAM / network) and status LEDs for **Ollama / TTS / mic / internet**
-- 🎛️ **Model picker** in the side panel — pick the everyday model (defaults to `qwen3:1.7b`); your choice is remembered between sessions
-- 🧠 **ULTRA THINK** — start a question with `ULTRATHINK:` (e.g. `ULTRATHINK: explain black holes`) to answer it with a bigger model when you've pulled one (set `BIG_MODEL` in `.env`; e.g. `ollama pull qwen3:4b`)
+- 🎛️ **Model picker** in the side panel — pick the everyday model (defaults to `qwen3:4b`); your choice is remembered between sessions
+- 🧠 **ULTRA THINK** — start a question with `ULTRATHINK:` (e.g. `ULTRATHINK: explain black holes`) to answer it with a bigger model when you've pulled one (set `BIG_MODEL` in `.env`; e.g. `ollama pull qwen3:8b`)
 - ⟲ One-click conversation reset
 
 ### 🗣️ Things you can say
@@ -206,7 +205,6 @@ You get:
 | (while J.A.R.V.I.S. is talking) `stop` / `shut up` | Cuts the reply off — barge-in |
 | `tell me about narendra modi` / `who is Einstein` / `give me information on black holes` | Auto-searches the web and answers with real facts |
 | `ULTRATHINK: explain black holes` | Answers with the bigger, smarter model (when you've pulled one) |
-| Scan the **PHONE LINK** QR with your phone's camera | Opens J.A.R.V.I.S. in the phone browser (same Wi-Fi) — chat, commands, voice input, quick actions |
 
 ### ⚡ Start J.A.R.V.I.S. Automatically at Boot (Windows)
 Want the assistant up and listening the moment you sit down — with **no console window** popping up?
@@ -223,20 +221,6 @@ Want the assistant up and listening the moment you sit down — with **no consol
 > 🔧 Inspect/edit the scheduled task anytime with `Win+R` → `taskschd.msc` → "JARVIS Assistant". Want the console visible for debugging? Run `run.bat` manually — that's still the normal (windowed) launcher.
 > 🚀 **Ollama comes along too:** the autostart entry launches the HUD, and the HUD then makes sure the Ollama server is running — so the AI answers the moment you ask, even right after a restart.
 
-### 📱 Phone link (use J.A.R.V.I.S. from your phone)
-Want J.A.R.V.I.S. in your pocket? The HUD starts a tiny local web server (a **PHONE LINK** line appears in the transmission log at boot).
-
-1. Click **PHONE LINK** in the HUD's side panel — a dialog pops up with a QR code and the URL (e.g. `https://192.168.1.6:5080`).
-2. Point your phone's camera at the QR (or type the URL in the phone browser) — the phone must be on the **same Wi-Fi** as the PC.
-3. Talk to J.A.R.V.I.S. from the phone: AI chat, quick actions (weather/joke/news/ip/screenshot), commands like `open notepad`, **voice input** (the 🎤 mic button), and a speaker toggle so the phone reads replies aloud. Replies appear **only on the phone** — the desktop stays silent while you're using the phone link.
-
-> 🔒 Everything stays on your home network — no cloud, no accounts. The phone browser only reaches the PC that's showing the QR.
-> 🎙️ **Voice input** – tap the 🎤 button in the phone page and talk — the browser transcribes and sends it (Chrome on Android, Edge, Safari on iOS 14.5+).
-> 🔐 **Why HTTPS?** Browsers only let web pages use the microphone over HTTPS. The phone link serves HTTPS with a **self-signed certificate** the PC generates once (regenerated automatically if your IP changes). The first time you open it, the phone warns *"your connection is not private"* — tap **Advanced → Proceed** (or *Show Details → visit website* on iPhone). That's expected and safe on your own network. If you ever stop trusting it, clear the site data or delete `phone_link_cert.pem` + `phone_link_key.pem` from the project folder.
-> 🔧 The phone link needs `flask`, `qrcode[pil]` and `cryptography` (already in `requirements.txt`). To change the port, set `PHONE_PORT` in `.env`.
-> 🔥 **Firewall:** the first time you open the phone link, Windows may ask to allow Python through the firewall — click **Allow** or the phone can't reach the PC.
-> 💡 No Wi-Fi handy? Both your phone and PC can join a mobile hotspot on either device and it works the same way.
-
 ### 🎛️ One interface: the Desktop HUD
 `main.py` is the main entry point — running it (or `run.bat`) pops up the Desktop HUD. The old terminal voice loop has been retired.
 
@@ -252,7 +236,9 @@ Want J.A.R.V.I.S. in your pocket? The HUD starts a tiny local web server (a **PH
 | **Screenshots fail / come back black** | You can't capture a locked or admin-elevated (UAC) screen. Unlock the PC first; screenshots are saved to the `screenshots/` folder. |
 | **Wake word doesn't respond** | The offline "hey jarvis" model downloads on the first run (needs internet once). Check the **WAKE** toggle and the MIC LED; if `openwakeword` isn't installed it falls back to online recognition. |
 | **Web search returns nothing** | DuckDuckGo can rate-limit; wait a minute or set a free `SERPAPI_KEY` in `.env` as a fallback. |
-| **Ollama won't start / "no model found"** | Install Ollama from [ollama.com](https://ollama.com) and run `ollama pull qwen3:1.7b`. The HUD auto-starts the server, but check the Ollama tray icon if it still fails. |
+| **Ollama won't start / "no model found"** | Install Ollama from [ollama.com](https://ollama.com) and run `ollama pull qwen3:4b`. The HUD auto-starts the server, but check the Ollama tray icon if it still fails. |
+| **Replies take forever** | `qwen3` is a *thinking* model — it plans the answer before replying, and its chat template gives Ollama no way to switch that off (`think: false` does not work; it only moves the reasoning into the spoken answer). On a CPU-only machine that's measured at **2–8 minutes per factual reply**. The reasoning itself is never read aloud, so the wait is silent until the answer starts. For replies in seconds, pull a non-thinking model and set `MODEL` in `.env`: `ollama pull qwen2.5:3b` (~1.9 GB) or `ollama pull gemma3:4b` (~3.3 GB). A 4B model needs ~6 GB of free RAM. |
+| **Answers are made up** | Small local models invent anything recent (a 1.7B model will tell you the wrong current president). The assistant auto-searches the web for "who is X" / "what's the latest X" questions — check the INTERNET LED is green, and prefer a bigger `MODEL`. |
 | **Want a different model?** | Set `MODEL` (everyday) and `BIG_MODEL` (ULTRATHINK) in `.env` — no code edits needed. |
 
 ---
@@ -271,8 +257,7 @@ Want J.A.R.V.I.S. in your pocket? The HUD starts a tiny local web server (a **PH
 │   │   ├── online_ops.py         # Online services: weather, news, Wikipedia (MediaWiki API), web search, jokes, IP;
 │   │   └── os_ops.py             # Local operations: launch apps/browsers, screenshots;
 │   ├── services/                 # Background services;
-│   │   ├── ollama_manager.py     # Auto-starts the local Ollama server when it's offline;
-│   │   └── phone_link.py         # Local web server + QR code so your phone can use J.A.R.V.I.S. on the same Wi-Fi;
+│   │   └── ollama_manager.py     # Auto-starts the local Ollama server when it's offline;
 │   ├── ui/                       # User interfaces;
 │   │   └── gui.py                # Desktop HUD interface (PyQt6, Mark-L style);
 │   ├── utils/                    # Small utilities;

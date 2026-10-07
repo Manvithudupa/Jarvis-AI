@@ -1,8 +1,8 @@
 """The J.A.R.V.I.S. assistant core: personality, chat, memory and commands.
 
-Holds the :class:`PersonalizedAssistant` (used by the HUD, the phone link
-and the test suite), the system prompt, command handling, and conversation
-history persistence.
+Holds the :class:`PersonalizedAssistant` (used by the HUD and the test
+suite), the system prompt, command handling, and conversation history
+persistence.
 """
 
 import os
@@ -71,10 +71,34 @@ _FACTUAL_RE = re.compile(
     r"\binformation\s+(?:on|about|regarding)\b|"
     r"\b(?:details|facts|info)\s+(?:about|on|regarding)\b|"
     r"\b(?:biography|history)\s+of\b|"
-    r"\bwho\s+(?:is|was|are|were)\s+(?!my\b|your\b|you\b|we\b)|"
+    r"\bwho\s+(?:is|was|are|were|won|invented|discovered|wrote|"
+    r"created|founded|invented|scored|plays|directed)\s+"
+    r"(?!my\b|your\b|you\b|we\b)|"
+    r"\bwhen\s+(?:did|was|does|is|will)\s+(?!i\b|we\b|you\b)|"
+    r"\bwhere\s+(?:is|was|are)\s+(?!my\b|your\b|i\b|the\s+nearest\b)|"
+    r"\bhow\s+(?:many|much|tall|old|far|long\s+ago|deep|high|big)\b|"
     r"\b(?:define|explain)\b|"
     r"\bwhat(?:'s|\s+(?:is|are|was|were))\s+"
     r"(?!my\b|your\b|this\b|that\b|it\b|up\b|these\b|we\b)",
+    re.IGNORECASE,
+)
+
+# Facts that change over time — presidents, versions, prices, champions. A
+# local model's training data is ALWAYS stale for these, so (unlike the
+# general-knowledge patterns above) they get web context every time.
+_TIMELY_RE = re.compile(
+    r"\b(?:current|currently|latest|newest|most recent|recently|nowadays|"
+    r"this (?:year|week|month)|right now|as of|release date|price of|"
+    r"stock price|match score|who won|who's winning|news about|"
+    r"what(?:'s| is) the (?:current|latest|newest))\b",
+    re.IGNORECASE,
+)
+
+# Casual openers and small talk that look like questions but answer better
+# from the model itself than from a web snippet.
+_CASUAL_RE = re.compile(
+    r"^\s*(?:how are you|how's it going|how are things|what's up|"
+    r"thanks|thank you|good (?:morning|afternoon|evening)|hello|hi|hey|yo)\b",
     re.IGNORECASE,
 )
 
@@ -234,11 +258,6 @@ class PersonalizedAssistant:
         self.botname = botname
         self.tts = tts or Speech()
         self.is_processing = False
-        # When True, handle_command's wikipedia/youtube follow-up may open
-        # the mic while is_processing is set (an intentional nested capture).
-        # Remote clients (the phone link) disable it so a phone request never
-        # grabs the desktop microphone.
-        self._allow_nested_listen = True
         self.model = model_name
         self.ollama = StreamingOllama(model=self.model)
         # Timers & reminders fire on a background daemon thread.
@@ -279,15 +298,8 @@ class PersonalizedAssistant:
 
         Never raises: a missing/unavailable microphone, listening timeouts
         and unrecognized speech all just return None so callers (HUD, wake
-        word, phone link) never crash on mic problems.
-
-        While ``is_processing`` is set a capture is normally refused (callers
-        guard against overlapping mic sessions) — except for the intentional
-        nested follow-up inside handle_command, allowed when
-        ``_allow_nested_listen`` is True.
+        word) never crash on mic problems.
         """
-        if self.is_processing and not self._allow_nested_listen:
-            return None
         recognizer = new_recognizer()
         try:
             with sr.Microphone() as source:
@@ -376,11 +388,16 @@ class PersonalizedAssistant:
 
     def _looks_factual(self, question):
         """True when the question is informational ("tell me about X", "who is X",
-        "give me information on X") and would benefit from web context."""
+        "give me information on X", "what's the latest X") and would benefit
+        from web context.
+
+        Questions about the user/assistant themselves and casual small talk
+        are excluded — those are answered from memory and the model.
+        """
         q = question or ""
-        if _IDENTITY_RE.search(q):
+        if _IDENTITY_RE.search(q) or _CASUAL_RE.search(q):
             return False
-        return bool(_FACTUAL_RE.search(q))
+        return bool(_FACTUAL_RE.search(q) or _TIMELY_RE.search(q))
 
     def generate_reply(self, question, speak=True, paced=True):
         """Yield reply tokens one at a time, speaking them in sentence chunks.
@@ -475,7 +492,7 @@ class PersonalizedAssistant:
             self._offline("check the weather")
             return
         # weather_report can run nested inside handle_command while the
-        # caller already holds is_processing=True (GUI worker, phone link) —
+        # caller already holds is_processing=True (the GUI worker) —
         # save/restore it instead of forcing False, so the busy guard never
         # drops mid-request and a second request can't sneak in.
         was_processing = self.is_processing
@@ -778,9 +795,9 @@ class PersonalizedAssistant:
         if is_farewell(query):
             self.speak(f'See ya, {self.username}! Ping me anytime!')
             self.summarize_and_save_history()
-            # Never exit() from a library method — the GUI and phone link
-            # own the process lifecycle and intercept farewells before
-            # commands. Exiting here would kill the whole app mid-use.
+            # Never exit() from a library method — the GUI owns the process
+            # lifecycle and intercepts farewells before commands. Exiting
+            # here would kill the whole app mid-use.
             return True
 
         # 6. personal memory — learn facts the user shares ("my name is X",

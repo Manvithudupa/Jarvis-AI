@@ -3,41 +3,43 @@
 #
 # Tested on Windows with Python 3.13.
 # On Python 3.13+ PyAudio needs the `audioop-lts` backport (included below).
+#
+# Everything below is split into REQUIRED and OPTIONAL: every optional package
+# has a fallback in the code, so the assistant still runs without it.
 
+# ── REQUIRED — the assistant won't start without these ──────────────────────
 requests
 pyttsx3
 SpeechRecognition
 python-decouple
-pywhatkit
 PyAudio
 audioop-lts
 PyQt6
 psutil
+# Web search ("tell me about X"): DuckDuckGo, free and key-free.
 ddgs
+# Screenshots — functions/os_ops.py captures the screen with PIL.ImageGrab.
 Pillow
 
-# Fully-local speech-to-text (optional): when installed, J.A.R.V.I.S. stops
-# using Google's speech API and transcribes your voice offline. The model
-# (~75 MB for "base") downloads on first use — configure via WHISPER_MODEL
-# in .env (tiny/base/small/medium). Without it, Google's free API is used.
+# ── OPTIONAL — each one has an in-code fallback ─────────────────────────────
+# Fully-local speech-to-text: with this installed your voice is transcribed
+# offline and Google's speech API is never used. The model (~75 MB for
+# "base") downloads on first use — configure via WHISPER_MODEL in .env.
 faster-whisper
 
-# Exact volume control ("volume to 50%") — optional; volume up/down and
-# mute work without it (Windows media keys).
+# Exact volume control ("volume to 50%"). Volume up/down and mute work
+# without it via the Windows media keys.
 pycaw
 
-# Phone link — scan a QR (PHONE LINK button in the HUD) to use J.A.R.V.I.S.
-# from your phone on the same Wi-Fi.
-flask
-qrcode[pil]
-# cryptography generates the self-signed HTTPS cert that lets the phone
-# browser use its microphone for voice input.
-cryptography
+# Opens YouTube videos directly. Without it, the YouTube search page opens in
+# the default browser instead. NOTE: pywhatkit also pulls in pyautogui,
+# pygetwindow, pyscreeze, mouseinfo and pyperclip.
+pywhatkit
 
 # Offline wake-word detection ('hey jarvis'). numpy/onnxruntime are listed
-# explicitly because the wake-word engine imports them directly. The pretrained
-# model (~1.2 MB) is downloaded automatically on first run (see core/wake_word.py).
-# If you skip openwakeword, the wake word falls back to online speech recognition.
+# explicitly because the wake-word engine imports them directly. The
+# pretrained model (~1.2 MB) downloads automatically on first run.
+# Without it, the wake word falls back to online speech recognition.
 openwakeword
 numpy
 onnxruntime

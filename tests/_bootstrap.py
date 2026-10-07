@@ -52,7 +52,7 @@ def make_assistant():
     """A PersonalizedAssistant with a fake TTS and no personal memory, so
     tests are deterministic and never read/write the user's real files."""
     from core.assistant import PersonalizedAssistant
-    a = PersonalizedAssistant("qwen3:1.7b", "JARVIS", "", tts=FakeTTS())
+    a = PersonalizedAssistant("qwen3:4b", "JARVIS", "", tts=FakeTTS())
     a.memory = {}
     a.username = "tester"
     return a

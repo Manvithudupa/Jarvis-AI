@@ -1,1 +1,1 @@
-"""Background services: Ollama server management and the phone link."""
+"""Background services: Ollama server management."""

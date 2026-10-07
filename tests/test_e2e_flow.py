@@ -2,9 +2,9 @@
 
 No hardware and no real Ollama: the model stream is a canned generator and
 online dependencies are mocked, but everything else runs for real —
-PersonalizedAssistant, command routing, memory, timers, prompt building,
-the GUI worker's process() entry and the phone link's _chat_stream — chained
-into the same multi-turn session a user would have.
+PersonalizedAssistant, command routing, memory, timers, prompt building and
+the GUI worker's process() entry — chained into the same multi-turn session
+a user would have.
 """
 
 import time
@@ -13,7 +13,6 @@ from unittest.mock import patch
 
 from _bootstrap import make_assistant
 
-from services import phone_link
 from ui.gui import AssistantWorker
 
 
@@ -22,7 +21,7 @@ class FakeOllama:
 
     def __init__(self, replies):
         self.replies = list(replies)
-        self.model = "qwen3:1.7b"
+        self.model = "qwen3:4b"
 
     def generate_stream(self, prompt):
         reply = self.replies.pop(0) if self.replies else "I'm not sure."
@@ -147,29 +146,6 @@ class EndToEndFlowTests(unittest.TestCase):
                 patch("core.assistant.get_city_from_ip", return_value=None):
             worker.process("weather")
         self.assertTrue(any("23℃" in t for t in lines))
-
-    # -- the phone link path (real assistant, phone-only replies) ----------
-    def test_phone_link_full_ai_chat(self):
-        server = phone_link.PhoneLinkServer(self.assistant, port=0)
-        with patch("services.phone_link.is_online", return_value=True):
-            text = "".join(server._chat_stream("hello from my phone", "s1"))
-        self.assertEqual(text, "Hey Sam! Great to see you.")
-        self.assertFalse(server.assistant.is_processing)
-        self.assertEqual(server.assistant.history[-2:],
-                         ["User: hello from my phone",
-                          "AI: Hey Sam! Great to see you."])
-
-    def test_phone_link_command_reply_is_captured(self):
-        a = self.assistant
-        server = phone_link.PhoneLinkServer(a, port=0)
-        with patch("core.assistant.have_internet", return_value=True), \
-                patch("core.assistant.get_weather_report",
-                      return_value=("sunny", "23℃", "21℃")), \
-                patch("core.assistant.get_city_from_ip", return_value=None):
-            text = "".join(server._chat_stream("weather", "s2"))
-        self.assertIn("23℃", text)
-        # phone requests never speak on the desktop
-        self.assertEqual(a.tts.messages, [])
 
     # -- timers fire end to end through the assistant -----------------------
     def test_timer_fires_end_to_end(self):

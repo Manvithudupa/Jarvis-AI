@@ -37,22 +37,12 @@ class FakeWakeListener:
         pass
 
 
-class _FakePhoneServer:
-    """Stand-in for phone_link.PhoneLinkServer — never binds a port."""
-
-    def __init__(self, assistant):
-        self.assistant = assistant
-        self.url = "https://192.168.1.5:5080"
-
-    def start(self):
-        return True
-
-
 class StartupSequenceTests(unittest.TestCase):
     """Boots the REAL HUD (offscreen, no window shown) and lets the full
     startup sequence run with fake audio/network: greeting, status LEDs,
-    mic readiness, wake-word arming (or auto-mic arming) and the phone
-    link line — everything except the actual devices."""
+    mic readiness and wake-word arming (or auto-mic arming) — everything
+    except the actual devices.
+    """
 
     @classmethod
     def setUpClass(cls):
@@ -61,12 +51,11 @@ class StartupSequenceTests(unittest.TestCase):
     def _boot(self, wake_word=True, auto_listen=True):
         assistant = make_assistant()
         worker = AssistantWorker(assistant)
-        fake_phone = SimpleNamespace(PhoneLinkServer=_FakePhoneServer)
         # The startup sequence fires ~350 ms later inside the Qt event
         # loop (QTimer.singleShot in _start_timers), so these patches must
         # stay active for the WHOLE test — a `with` block would have
         # reverted them before _startup ever ran and the real wake
-        # listener / phone server would grab the real devices.
+        # listener would grab the real devices.
         patchers = [
             patch("ui.gui.autostart_enabled", return_value=False),
             patch("ui.gui.requests.get",
@@ -76,7 +65,6 @@ class StartupSequenceTests(unittest.TestCase):
                   lambda timeout=30, on_status=None:
                   (on_status("Ollama is already running.")
                    if on_status else None) or True),
-            patch("ui.gui.phone_link", fake_phone),
             patch("speech_recognition.Microphone.list_microphone_names",
                   return_value=["Fake Mic"]),
             patch("core.wake_word.WakeWordListener", FakeWakeListener),
@@ -123,7 +111,7 @@ class StartupSequenceTests(unittest.TestCase):
         # async Ollama / internet probes have painted their LEDs, and the
         # log's typewriter has fully typed the last boot line ("Standing
         # by") — typing is sequential, so that also proves everything
-        # before it (CORE ONLINE, PHONE LINK) made it to the screen.
+        # before it (CORE ONLINE) made it to the screen.
         ok = self._pump(
             lambda: worker.wake_active and window._mic_ok
                     and "ONLINE" in window._leds["OLLAMA"].text()
@@ -143,7 +131,6 @@ class StartupSequenceTests(unittest.TestCase):
         self.assertTrue(window.assistant.tts.messages)
         log_text = window.log.toPlainText()
         self.assertIn("CORE ONLINE", log_text)
-        self.assertIn("PHONE LINK:", log_text)
         self.assertIn("Standing by", log_text)
 
     def test_auto_mic_mode_startup(self):
@@ -175,7 +162,6 @@ class HudSmokeTests(unittest.TestCase):
         worker = AssistantWorker(assistant)
         with patch("ui.gui.autostart_enabled", return_value=False), \
                 patch.object(MainWindow, "_start_timers"), \
-                patch.object(MainWindow, "_start_phone_link"), \
                 patch.object(MainWindow, "_check_mic"), \
                 patch("ui.gui._save_wake"), patch("ui.gui._save_speaker"), \
                 patch("ui.gui._save_autolisten"), \
